@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LEFT OVER CHEF — Turn Leftovers Into Gourmet Meals</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="landing-view-active">
+  <!-- Ambient Atmospheric Lighting -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- Header Navigation -->
+  <header class="navbar">
+    <div class="logo" id="navLogoBtn" role="button" tabindex="0" title="Return to Home">
+      <span class="logo-mark"><i class="fa-solid fa-utensils"></i></span>
+      <span class="logo-text">LEFT OVER <strong>CHEF</strong></span>
+    </div>
+    <nav class="nav-links">
+      <button class="nav-link active" id="navHomeBtn">Home</button>
+      <button class="nav-link" id="navDiscoverBtn">Discover Recipes</button>
+    </nav>
+    <div class="nav-actions">
+      <button id="favoritesBtn" class="header-favorites" title="Saved Favorites">
+        <i class="fa-regular fa-heart"></i><span class="fav-counter" id="favCount">0</span>
+      </button>
+      <button id="themeToggle" class="header-theme" title="Toggle Theme"><i class="fa-solid fa-moon"></i></button>
+      <button id="headerStartBtn" class="start-cooking">
+        <span>Start Cooking</span> <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==========================================================
+       VIEW 1: HERO LANDING PAGE (Non-Scrolling, Full Screen)
+       ========================================================== -->
+  <section class="hero-landing-section reference-hero" id="heroSection">
+    <div class="hero-wash hero-wash-one"></div>
+    <div class="hero-wash hero-wash-two"></div>
+    <div class="hero-background-dish hero-background-dish-one"></div>
+    <div class="hero-background-dish hero-background-dish-two"></div>
+    <div class="hero-container">
+      <div class="hero-content">
+        <div class="hero-badge animate-fade-in">
+          <span class="badge-sparkle"><i class="fa-solid fa-sparkles"></i></span>
+          <span>Intelligent Cooking</span>
+        </div>
+        <h1 class="hero-main-title animate-slide-up">
+          Turn what's<br>left<br>into<br>something<br><em>extraordinary.</em>
+        </h1>
+        <p class="hero-description animate-slide-up-delay">
+          Transform the ingredients sitting in your kitchen into beautiful, delicious meals with the power of culinary intelligence.
+        </p>
+        <div class="hero-cta-group animate-slide-up-delay-2">
+          <button id="discoverBtn" class="btn-discover">
+            <span class="btn-discover-glow"></span>
+            <span class="btn-discover-text">Discover Your Recipe</span>
+            <span class="btn-discover-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+          </button>
+        </div>
+      </div>
+      <div class="hero-visual animate-scale-in">
+        <div class="visual-card-wrapper">
+          <div class="main-dish-card glass-panel">
+            <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1000&q=85" alt="Colorful roasted vegetables and rice dish" class="main-dish-img">
+          </div>
+          <div class="ai-pick-card">
+            <span><i class="fa-solid fa-sparkles"></i> CHEF'S PICK</span>
+            <strong>Made for you</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       VIEW 2: INGREDIENT & RECIPE SELECTION STUDIO (Revealed on Click)
+       ========================================================== -->
+  <main class="main-content" id="recipeWorkshop" style="display: none;">
+    <!-- Studio Header & Back Button -->
+    <div class="studio-top-nav">
+      <button id="backToHomeBtn" class="btn-back-home" title="Return to Landing Page">
+        <i class="fa-solid fa-arrow-left"></i> <span>Back to Home</span>
+      </button>
+    </div>
+
+    <div class="section-intro text-center">
+      <div class="badge-pill">
+        <i class="fa-solid fa-kitchen-set"></i> Recipe Selection Studio
+      </div>
+      <h2 class="studio-title">Select Ingredients & Dietary Preference</h2>
+      <p class="studio-subtitle">Provide the ingredients sitting in your fridge or pantry, choose your diet style, and let our culinary engine craft your personalized recipes.</p>
+    </div>
+
+    <!-- Generator Box Panel -->
+    <div class="generator-box glass-panel" id="generatorBox">
+      <!-- Dietary Preference & Meal Type Controls -->
+      <div class="dietary-selector-row">
+        <div>
+          <label class="control-label" for="dietPreference">
+            <i class="fa-solid fa-utensils"></i> Dietary Preference:
+          </label>
+          <div class="select-wrapper">
+            <select id="dietPreference" class="custom-select">
+              <option value="all">🍽️ All Diets</option>
+              <option value="veg" selected>🌱 Vegetarian</option>
+              <option value="non-veg">🍗 Non-Vegetarian</option>
+              <option value="vegan">🌿 100% Vegan</option>
+            </select>
+          </div>
+        </div>
+        
+        <div>
+          <label class="control-label" for="mealType">
+            <i class="fa-solid fa-clock"></i> Meal Type:
+          </label>
+          <div class="select-wrapper">
+            <select id="mealType" class="custom-select">
+              <option value="all">Any Meal</option>
+              <option value="breakfast">Breakfast</option>
+              <option value="lunch">Lunch</option>
+              <option value="dinner">Dinner</option>
+              <option value="snack">Snack & Quick Bites</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ingredient Input Form -->
+      <div class="ingredient-input-wrapper">
+        <label class="control-label" for="ingredientInput">
+          <i class="fa-solid fa-basket-shopping"></i> What ingredients do you have?
+        </label>
+        <div class="input-inner">
+          <i class="fa-solid fa-magnifying-glass input-icon"></i>
+          <input 
+            type="text" 
+            id="ingredientInput" 
+            placeholder="Type an ingredient (e.g. Tomato, Garlic, Chicken, Paneer, Rice...) and press Enter" 
+            autocomplete="off"
+          />
+          <button id="addIngredientBtn" class="add-btn" title="Add Ingredient">
+            <i class="fa-solid fa-plus"></i> Add
+          </button>
+        </div>
+        <p class="input-hint"><i class="fa-regular fa-lightbulb"></i> Tip: Separate by commas or press Enter after each item.</p>
+      </div>
+
+      <!-- Tags Container -->
+      <div class="tags-container" id="tagsContainer">
+        <!-- Dynamically populated tags -->
+      </div>
+
+      <!-- Quick Pantry Suggestions -->
+      <div class="quick-suggestions">
+        <span class="suggestions-label">Popular Pantry Items:</span>
+        <div class="suggestions-list" id="quickSuggestions">
+          <button class="quick-chip" data-item="Tomato">🍅 Tomato</button>
+          <button class="quick-chip" data-item="Onion">🧅 Onion</button>
+          <button class="quick-chip" data-item="Garlic">🧄 Garlic</button>
+          <button class="quick-chip" data-item="Potato">🥔 Potato</button>
+          <button class="quick-chip" data-item="Cheese">🧀 Cheese</button>
+          <button class="quick-chip" data-item="Rice">🍚 Rice</button>
+          <button class="quick-chip" data-item="Eggs">🥚 Eggs</button>
+          <button class="quick-chip" data-item="Chicken">🍗 Chicken</button>
+          <button class="quick-chip" data-item="Paneer">🧈 Paneer</button>
+          <button class="quick-chip" data-item="Pasta">🍝 Pasta</button>
+          <button class="quick-chip" data-item="Spinach">🥬 Spinach</button>
+          <button class="quick-chip" data-item="Mushroom">🍄 Mushroom</button>
+        </div>
+      </div>
+
+      <!-- Action Row -->
+      <div class="action-row">
+        <button id="clearAllBtn" class="btn-secondary" style="display: none;">
+          <i class="fa-solid fa-trash-can"></i> Clear All
+        </button>
+        <button id="generateBtn" class="btn-primary">
+          <span class="btn-glow"></span>
+          <i class="fa-solid fa-fire-burner"></i> Generate Recipes
+        </button>
+      </div>
+    </div>
+
+    <!-- ==========================================================
+         RESULTS & RECIPES GRID SECTION
+         ========================================================== -->
+    <section class="results-section" id="resultsSection" style="display: none;">
+      <div class="results-header">
+        <div>
+          <h2 class="section-heading" id="resultsHeading">Recommended Creations</h2>
+          <p class="section-subheading" id="resultsCount">Found 0 matching recipes for your ingredients</p>
+        </div>
+        <div class="results-controls">
+          <div class="sort-wrapper">
+            <label for="sortBy"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort by:</label>
+            <select id="sortBy" class="custom-select-sm">
+              <option value="match">Best Ingredient Match</option>
+              <option value="time">Cooking Time (Fastest)</option>
+              <option value="difficulty">Difficulty (Easiest)</option>
+              <option value="calories">Calories (Lowest)</option>
+            </select>
+          </div>
+          <button id="backToSearchBtn" class="btn-ghost">
+            <i class="fa-solid fa-sliders"></i> Modify Ingredients
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Filter Badges -->
+      <div class="active-filters-bar" id="activeFiltersBar"></div>
+
+      <!-- Recipes Grid -->
+      <div class="recipes-grid" id="recipesGrid">
+        <!-- Recipe Cards Injected Here -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Recipe Detail Modal -->
+  <div class="modal-overlay" id="recipeModal" style="display: none;">
+    <div class="modal-card glass-panel" id="modalCard">
+      <button class="modal-close-btn" id="closeModalBtn" title="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="modal-body" id="modalContent">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Favorites Drawer -->
+  <div class="drawer-overlay" id="favDrawer" style="display: none;">
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <h3><i class="fa-solid fa-heart" style="color: #ef4444;"></i> Saved Recipes</h3>
+        <button class="drawer-close" id="closeDrawerBtn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="drawer-body" id="favListContainer">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Step-by-Step Cooking Timer Bar / Float -->
+  <div class="floating-timer" id="floatingTimer" style="display: none;">
+    <div class="timer-info">
+      <i class="fa-solid fa-stopwatch timer-icon pulse-fast"></i>
+      <span id="timerLabel">Cooking Timer:</span>
+      <span class="timer-digits" id="timerDigits">00:00</span>
+    </div>
+    <div class="timer-controls">
+      <button id="pauseTimerBtn" class="timer-btn"><i class="fa-solid fa-pause"></i></button>
+      <button id="stopTimerBtn" class="timer-btn text-danger"><i class="fa-solid fa-stop"></i></button>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Recipe Generating Overlay Loading Screen -->
+  <div class="ai-loading-overlay" id="aiLoadingOverlay" style="display: none;">
+    <div class="ai-loading-card glass-panel">
+      <div class="ai-chef-orb">
+        <i class="fa-solid fa-wand-magic-sparkles ai-pulse-icon"></i>
+      </div>
+      <h3 class="ai-loading-title">Crafting your recipe...</h3>
+      <p class="ai-loading-sub" id="aiLoadingSub">Analyzing ingredient pairings, balancing flavors, and structuring cooking steps...</p>
+      <div class="ai-progress-bar">
+        <div class="ai-progress-glow"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer" id="mainFooter" style="display: none;">
+    <div class="footer-inner">
+      <div class="footer-logo">
+        <span class="logo-mark"><i class="fa-solid fa-utensils"></i></span>
+        <span>LEFT OVER <strong>CHEF</strong></span>
+      </div>
+      <p>Crafted for food lovers • Fresh, delicious & zero food waste</p>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
