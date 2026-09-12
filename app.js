@@ -552,7 +552,59 @@ Meal Type: ${meal}`;
     }
 
     const recipeJson = JSON.parse(candidate);
+
+    // If recipe doesn't already have an image from API, generate dish-tailored AI photo
+    if (!recipeJson.image) {
+      try {
+        recipeJson.image = await generateDishImage(recipeJson.title, ingredients, apiKey);
+      } catch (e) {
+        recipeJson.image = createDynamicFoodPhotoUrl(recipeJson.title, ingredients);
+      }
+    }
+
     return formatGeneratedRecipe(recipeJson, ingredients, diet, meal);
+  }
+
+  // --- AI Image Generator (Gemini Imagen 3 + Real-Time Generative Fallback) ---
+  async function generateDishImage(dishTitle, ingredients, apiKey) {
+    const mainItems = (ingredients && ingredients.length > 0) ? ingredients.slice(0, 3).join(', ') : 'gourmet ingredients';
+    const cleanTitle = dishTitle || 'Chef Special Creation';
+
+    // 1. Try Google Imagen 3 API if an API key is present
+    if (apiKey && apiKey.trim()) {
+      try {
+        const prompt = `Professional food photography of ${cleanTitle}, beautifully plated on an artisanal ceramic dish, made with ${mainItems}, 45-degree gourmet angle, soft natural restaurant lighting, ultra-sharp focus, 8k culinary magazine food style`;
+        const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey.trim()}`;
+        const res = await fetch(imagenUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instances: [{ prompt: prompt }],
+            parameters: { sampleCount: 1, aspectRatio: '4:3', outputMimeType: 'image/jpeg' }
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const base64 = data.predictions?.[0]?.bytesBase64Encoded;
+          if (base64) {
+            return `data:image/jpeg;base64,${base64}`;
+          }
+        }
+      } catch (err) {
+        console.warn('Direct Imagen 3 generation notice:', err);
+      }
+    }
+
+    // 2. Real-time Generative AI Dish Photo based on exact recipe requirements
+    return createDynamicFoodPhotoUrl(cleanTitle, ingredients);
+  }
+
+  function createDynamicFoodPhotoUrl(dishTitle, ingredients) {
+    const items = (ingredients && ingredients.length) ? ingredients.slice(0, 3).join(' ') : 'gourmet';
+    const seed = Math.floor(Math.random() * 900000) + 100000;
+    const promptStr = encodeURIComponent(`delicious appetizing gourmet ${dishTitle}, cooked with ${items}, restaurant plating, warm lighting, professional food photography, 4k`);
+    return `https://image.pollinations.ai/prompt/${promptStr}?width=800&height=600&nologo=true&seed=${seed}`;
   }
 
   // --- Recipe Formatting Helper ---
@@ -568,14 +620,7 @@ Meal Type: ${meal}`;
       }
     });
 
-    const curatedImages = [
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80"
-    ];
-    const image = curatedImages[Math.floor(Math.random() * curatedImages.length)];
+    const image = recipeJson.image || createDynamicFoodPhotoUrl(recipeJson.title, ingredients);
 
     return {
       id: `custom_${Date.now()}`,
@@ -719,14 +764,7 @@ Meal Type: ${meal}`;
       { name: "Fresh Herb Garnish", amount: "1 tbsp", key: false }
     ];
 
-    const curatedImages = [
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80"
-    ];
-    const image = curatedImages[Math.floor(Math.random() * curatedImages.length)];
+    const image = createDynamicFoodPhotoUrl(dishTitle, ingredients);
 
     return {
       id: `custom_${Date.now()}`,
@@ -799,7 +837,7 @@ Meal Type: ${meal}`;
       return `
         <div class="recipe-card" data-id="${recipe.id}">
           <div class="card-img-wrapper">
-            <img src="${recipe.image}" alt="${escapeHtml(recipe.title)}" class="card-img" loading="lazy" />
+            <img src="${recipe.image}" alt="${escapeHtml(recipe.title)}" class="card-img" loading="lazy" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';" />
             <span class="card-diet-badge ${dietClass}">${dietLabel}</span>
             <button class="card-fav-btn ${isFav ? 'active' : ''}" data-fav-id="${recipe.id}" title="${isFav ? 'Remove Favorite' : 'Save Favorite'}">
               <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
@@ -896,17 +934,22 @@ Meal Type: ${meal}`;
 
     el.modalContent.innerHTML = `
       <div class="modal-header-hero">
-        <img src="${r.image}" alt="${escapeHtml(r.title)}" class="modal-hero-img" />
+        <img src="${r.image}" alt="${escapeHtml(r.title)}" class="modal-hero-img" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';" />
         <div class="modal-hero-overlay">
-          <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
-            <span class="badge-pill" style="margin-bottom: 0; background: rgba(0,0,0,0.6); color: #fff;">
-              ${escapeHtml(r.cuisine)} • ${r.difficulty}
-            </span>
-            ${(r.isCustomSpecial || r.isCustomGenerated) ? `
-              <span class="gemini-sparkle-tag" style="background: rgba(16, 185, 129, 0.85); color: #fff;">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> Chef's Creation
+          <div style="display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; width: 100%;">
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <span class="badge-pill" style="margin-bottom: 0; background: rgba(0,0,0,0.6); color: #fff;">
+                ${escapeHtml(r.cuisine)} • ${r.difficulty}
               </span>
-            ` : ''}
+              ${(r.isCustomSpecial || r.isCustomGenerated) ? `
+                <span class="gemini-sparkle-tag" style="background: rgba(16, 185, 129, 0.85); color: #fff;">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Chef's Creation
+                </span>
+              ` : ''}
+            </div>
+            <button class="ai-regenerate-photo-btn" id="regeneratePhotoBtn" title="Generate New AI Photo for this Recipe">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> New AI Photo
+            </button>
           </div>
           <h2 class="modal-hero-title">${escapeHtml(r.title)}</h2>
           <p class="modal-hero-subtitle">${escapeHtml(r.description)}</p>
@@ -1032,6 +1075,41 @@ Meal Type: ${meal}`;
       }
     });
 
+    // AI Photo Regeneration Button
+    const regenBtn = document.getElementById('regeneratePhotoBtn');
+    if (regenBtn) {
+      regenBtn.addEventListener('click', async () => {
+        regenBtn.disabled = true;
+        regenBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+        try {
+          const newImg = await generateDishImage(r.title, state.ingredients, state.geminiApiKey);
+          r.image = newImg;
+          
+          const modalHeroImg = el.modalContent.querySelector('.modal-hero-img');
+          if (modalHeroImg) modalHeroImg.src = newImg;
+
+          // Update grid card image if visible
+          const cardImg = el.recipesGrid.querySelector(`[data-id="${r.id}"] .card-img`);
+          if (cardImg) cardImg.src = newImg;
+
+          // Update in favorites if saved
+          const favIdx = state.favorites.findIndex(f => f.id === r.id);
+          if (favIdx > -1) {
+            state.favorites[favIdx].image = newImg;
+            localStorage.setItem('culinary_favs', JSON.stringify(state.favorites));
+          }
+
+          showToast('✨ Updated recipe with fresh AI photo!', 'success');
+        } catch (e) {
+          console.error(e);
+          showToast('Could not regenerate photo right now.', 'info');
+        } finally {
+          regenBtn.disabled = false;
+          regenBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> New AI Photo';
+        }
+      });
+    }
+
     // Cooking Timer Button
     document.getElementById('startCookTimerBtn').addEventListener('click', () => {
       startTimer(r.cookTime * 60, r.title);
@@ -1146,7 +1224,7 @@ Meal Type: ${meal}`;
 
     el.favListContainer.innerHTML = state.favorites.map(recipe => `
       <div class="fav-item-card" data-fav-item-id="${recipe.id}">
-        <img src="${recipe.image}" alt="${escapeHtml(recipe.title)}" class="fav-thumb" />
+        <img src="${recipe.image}" alt="${escapeHtml(recipe.title)}" class="fav-thumb" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';" />
         <div class="fav-info">
           <h4 class="fav-title">${escapeHtml(recipe.title)}</h4>
           <span class="fav-meta">${recipe.cuisine} • ${recipe.prepTime + recipe.cookTime} mins</span>

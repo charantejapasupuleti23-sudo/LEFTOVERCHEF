@@ -110,6 +110,40 @@ Meal Type: ${meal}`;
     }
 
     const recipeJson = JSON.parse(candidate);
+
+    // Generate tailored dish photo via Imagen 3 or dynamic AI food generator
+    let recipeImageUrl = null;
+    try {
+      const imgPrompt = `Professional culinary food photography of ${recipeJson.title}, beautifully plated on a modern ceramic dish, fresh ingredients (${ingredients.slice(0, 3).join(', ')}), soft natural restaurant lighting, high resolution, 8k culinary magazine photo`;
+      const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+      const imgRes = await fetch(imagenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instances: [{ prompt: imgPrompt }],
+          parameters: { sampleCount: 1, aspectRatio: '4:3', outputMimeType: 'image/jpeg' }
+        })
+      });
+
+      if (imgRes.ok) {
+        const imgData = await imgRes.json();
+        const base64 = imgData.predictions?.[0]?.bytesBase64Encoded;
+        if (base64) {
+          recipeImageUrl = `data:image/jpeg;base64,${base64}`;
+        }
+      }
+    } catch (imgErr) {
+      console.warn('Imagen 3 generation notice:', imgErr.message);
+    }
+
+    // Dynamic AI food photography fallback if Imagen 3 quota/key is limited
+    if (!recipeImageUrl) {
+      const promptEncoded = encodeURIComponent(`delicious gourmet dish of ${recipeJson.title}, culinary presentation, professional food photography, 4k`);
+      recipeImageUrl = `https://image.pollinations.ai/prompt/${promptEncoded}?width=800&height=600&nologo=true`;
+    }
+
+    recipeJson.image = recipeImageUrl;
+
     return res.status(200).json(recipeJson);
   } catch (err) {
     return res.status(500).json({ error: err.message || 'Server error generating recipe' });
