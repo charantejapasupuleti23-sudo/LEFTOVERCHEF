@@ -438,8 +438,29 @@
 
   // --- Google Gemini API Integration ---
   async function callGeminiApi(ingredients, diet, meal) {
+    // 1. Try Vercel Serverless Endpoint (reads GEMINI_API_KEY from Vercel Environment Variables)
+    try {
+      const serverlessRes = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredients, diet, meal })
+      });
+
+      if (serverlessRes.ok) {
+        const recipeJson = await serverlessRes.json();
+        return formatGeneratedRecipe(recipeJson, ingredients, diet, meal);
+      }
+    } catch (e) {
+      // If /api/generate is not present (e.g. static local file://), continue to direct client call
+    }
+
+    // 2. Direct client-side API call fallback
     const apiKey = state.geminiApiKey.trim();
     const model = state.geminiModel || 'gemini-1.5-flash';
+
+    if (!apiKey) {
+      throw new Error("No API key available.");
+    }
 
     const systemPrompt = `You are an elite master chef and culinary scientist. 
 The user has given you a specific set of pantry ingredients, dietary preference, and meal type.
@@ -518,8 +539,11 @@ Create an extraordinary recipe now.`;
     }
 
     const recipeJson = JSON.parse(candidate);
+    return formatGeneratedRecipe(recipeJson, ingredients, diet, meal);
+  }
 
-    // Calculate match metrics
+  // --- Recipe Formatting Helper ---
+  function formatGeneratedRecipe(recipeJson, ingredients, diet, meal) {
     const userIngredientsLower = ingredients.map(i => i.toLowerCase());
     let matchedCount = 0;
     const recipeIngredients = recipeJson.ingredients || [];
@@ -531,7 +555,6 @@ Create an extraordinary recipe now.`;
       }
     });
 
-    // Provide high quality curated food photography according to cuisine/diet
     const curatedImages = [
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
       "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
