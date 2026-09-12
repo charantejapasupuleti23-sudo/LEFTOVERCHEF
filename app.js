@@ -383,7 +383,7 @@
     showToast(`Found ${results.length} recipe suggestion${results.length === 1 ? '' : 's'}!`, 'success');
   }
 
-  // --- Local Recipe Scorer ---
+  // --- Local Recipe Scorer (Strict Matching) ---
   function getMatchingLocalRecipes(userIngredients, diet, meal) {
     let candidates = RECIPES_DATA.filter(recipe => {
       if (diet === 'veg') {
@@ -421,6 +421,11 @@
         }
       });
 
+      // Require user to have all key primary ingredients for catalog matches
+      const hasAllKeys = keyIngs.every(k => 
+        userIngredients.some(u => k.includes(u) || u.includes(k))
+      );
+
       const matchPercent = Math.round((matchedCount / recipe.ingredients.length) * 100);
 
       return {
@@ -428,16 +433,20 @@
         matchedCount,
         totalIngredients: recipe.ingredients.length,
         matchPercent,
+        hasAllKeys,
         matchedItems,
         missingItems
       };
     });
 
-    return scored.filter(r => r.matchedCount > 0);
+    // Only include catalog recipes if there's a strong direct match (at least 60% match and has key items)
+    return scored.filter(r => r.matchedCount >= 2 && r.hasAllKeys);
   }
 
   // --- Google Gemini API Integration ---
   async function callGeminiApi(ingredients, diet, meal) {
+    const ingredientsListStr = ingredients.join(', ');
+
     // 1. Try Vercel Serverless Endpoint (reads GEMINI_API_KEY from Vercel Environment Variables)
     try {
       const serverlessRes = await fetch('/api/generate', {
@@ -462,19 +471,22 @@
       throw new Error("No API key available.");
     }
 
-    const systemPrompt = `You are an elite master chef and culinary scientist. 
-The user has given you a specific set of pantry ingredients, dietary preference, and meal type.
-Generate a gourmet, realistic, delicious recipe that prioritizes their provided ingredients.
+    const systemPrompt = `You are a Michelin-star Executive Chef and culinary innovator.
+Your mission is to craft a completely custom, unique gourmet recipe centered STRICTLY around the user's exact pantry ingredients: [${ingredientsListStr}].
 
-Strict Dietary Rule:
-- If diet is "veg", the recipe must strictly contain NO meat, poultry, fish, seafood, or eggs. Dairy is allowed.
-- If diet is "vegan", strictly 100% plant-based with NO meat, dairy, eggs, or animal products.
-- If diet is "non-veg", you can incorporate chicken, egg, meat, or seafood while harmonizing with their ingredients.
+CRITICAL RULES:
+1. FOCUS ON PROVIDED INGREDIENTS: The dish title, core flavor, and preparation steps MUST revolve directly around ${ingredientsListStr}.
+2. DO NOT introduce unprovided primary ingredients (for example: do NOT create a Chicken or Paneer recipe if the user did not give Chicken or Paneer). You may only assume basic pantry seasonings (oil, butter, salt, pepper, common spices, water).
+3. DIETARY PREFERENCE COMPLIANCE:
+   - If diet is "veg": STRICTLY NO meat, chicken, beef, pork, seafood, fish, or eggs. Dairy (milk, butter, cheese) is allowed.
+   - If diet is "vegan": STRICTLY 100% plant-based. NO meat, NO eggs, NO dairy, NO honey.
+   - If diet is "non-veg": Meat/poultry/eggs/seafood are allowed ONLY if provided by the user or as a complement if requested.
+4. VARIATION & UNIQUENESS: Every request must produce a creative, authentic recipe specifically harmonizing ${ingredientsListStr}.
 
 You MUST reply ONLY with a valid JSON object matching this exact schema:
 {
-  "title": "Dish Name",
-  "cuisine": "Cuisine style (e.g. Italian, Indian, Mexican, Asian, Mediterranean, American)",
+  "title": "Creative, highly appetizing dish name featuring ${ingredientsListStr}",
+  "cuisine": "Authentic Cuisine style (e.g. Italian, Mediterranean, Asian, Mexican, French, Indian)",
   "diet": "${diet === 'all' ? 'veg' : diet}",
   "mealType": ["${meal === 'all' ? 'dinner' : meal}"],
   "prepTime": 15,
@@ -485,22 +497,23 @@ You MUST reply ONLY with a valid JSON object matching this exact schema:
   "protein": "18g",
   "carbs": "42g",
   "fats": "14g",
-  "description": "A 2-sentence enticing description highlighting the flavor profile and texture.",
+  "description": "An enticing culinary description explaining how ${ingredientsListStr} are paired, textured, and flavored.",
   "ingredients": [
     { "name": "Ingredient Name", "amount": "e.g. 2 cups / 200g / 2 tbsp", "key": true }
   ],
   "instructions": [
-    "Step 1 description with precise techniques and visual cues.",
-    "Step 2 description..."
+    "Step 1: Specific prep and technique for ${ingredients[0] || 'the main item'}.",
+    "Step 2: Cooking aromatics and combining ingredients...",
+    "Step 3: Simmering/searing with seasonings...",
+    "Step 4: Plating and finishing..."
   ],
-  "tips": "A professional chef tip to make this dish taste restaurant quality."
+  "tips": "A professional chef secret tip to elevate this specific dish."
 }`;
 
-    const userPrompt = `User's available pantry ingredients: ${ingredients.join(', ')}
-Dietary preference: ${diet}
-Meal type: ${meal}
-
-Create an extraordinary recipe now.`;
+    const userPrompt = `Create a gourmet recipe now for:
+Available Ingredients: ${ingredientsListStr}
+Diet Preference: ${diet}
+Meal Type: ${meal}`;
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -515,7 +528,7 @@ Create an extraordinary recipe now.`;
       ],
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.7,
+        temperature: 0.85,
         maxOutputTokens: 2048
       }
     };
@@ -535,7 +548,7 @@ Create an extraordinary recipe now.`;
     const data = await response.json();
     const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!candidate) {
-      throw new Error("No recipe returned by Gemini model");
+      throw new Error("No recipe returned by model");
     }
 
     const recipeJson = JSON.parse(candidate);
@@ -566,8 +579,8 @@ Create an extraordinary recipe now.`;
 
     return {
       id: `custom_${Date.now()}`,
-      title: recipeJson.title || "Chef's Signature Creation",
-      cuisine: recipeJson.cuisine || "Fusion",
+      title: recipeJson.title || `Chef's Custom ${ingredients.slice(0, 2).join(' & ')} Creation`,
+      cuisine: recipeJson.cuisine || "Fusion Gourmet",
       diet: recipeJson.diet || (diet === 'all' ? 'veg' : diet),
       mealType: recipeJson.mealType || [meal === 'all' ? 'dinner' : meal],
       prepTime: recipeJson.prepTime || 15,
@@ -579,10 +592,10 @@ Create an extraordinary recipe now.`;
       carbs: recipeJson.carbs || "40g",
       fats: recipeJson.fats || "14g",
       image: image,
-      description: recipeJson.description || "Freshly formulated based on your pantry ingredients.",
+      description: recipeJson.description || `A bespoke culinary creation centering around ${ingredients.join(', ')}.`,
       ingredients: recipeIngredients,
       instructions: recipeJson.instructions || [],
-      tips: recipeJson.tips || "Serve fresh and hot for optimum flavor.",
+      tips: recipeJson.tips || "Serve piping hot and garnish with freshly cracked black pepper.",
       matchedCount: matchedCount || ingredients.length,
       totalIngredients: recipeIngredients.length || ingredients.length,
       matchPercent: Math.round(((matchedCount || ingredients.length) / (recipeIngredients.length || ingredients.length)) * 100),
@@ -590,56 +603,156 @@ Create an extraordinary recipe now.`;
     };
   }
 
-  // --- Dynamic Smart Fallback Generator ---
+  // --- Dynamic Smart Fallback Generator (Ingredient-Tailored Procedural Synthesis) ---
   function generateDynamicRecipe(ingredients, diet, meal) {
-    const mainItem = ingredients[0];
-    const secondaryItems = ingredients.slice(1);
-    const cuisineKeys = Object.keys(DYNAMIC_CUISINE_PROFILES);
-    const randomCuisineKey = cuisineKeys[Math.floor(Math.random() * cuisineKeys.length)];
-    const profile = DYNAMIC_CUISINE_PROFILES[randomCuisineKey];
+    const lowerIngs = ingredients.map(i => i.toLowerCase());
+    
+    // Categorize items
+    const hasEggs = lowerIngs.some(i => i.includes('egg'));
+    const hasChicken = lowerIngs.some(i => i.includes('chicken'));
+    const hasPaneer = lowerIngs.some(i => i.includes('paneer'));
+    const hasCheese = lowerIngs.some(i => i.includes('cheese'));
+    const hasPotato = lowerIngs.some(i => i.includes('potato'));
+    const hasRice = lowerIngs.some(i => i.includes('rice'));
+    const hasPasta = lowerIngs.some(i => i.includes('pasta') || i.includes('noodle'));
+    const hasSpinach = lowerIngs.some(i => i.includes('spinach') || i.includes('palak'));
+    const hasMushroom = lowerIngs.some(i => i.includes('mushroom'));
+    const hasTomato = lowerIngs.some(i => i.includes('tomato'));
+    const hasGarlic = lowerIngs.some(i => i.includes('garlic'));
+    const hasOnion = lowerIngs.some(i => i.includes('onion'));
 
-    const title = `Chef's Custom ${mainItem} & Herb ${profile.name}`;
+    let dishTitle = "";
+    let cuisine = "Continental";
+    let cookingTime = 15;
+    let prepTime = 10;
+    let instructions = [];
+
+    // Synthesize tailored title and cooking steps based on actual user ingredients
+    if (hasEggs && hasSpinach) {
+      dishTitle = "Fluffy Garlic Butter Spinach & Herb Egg Scramble";
+      cuisine = "French Bistro";
+      cookingTime = 10;
+      instructions = [
+        "Wash spinach leaves thoroughly and roughly chop. Mince garlic cloves.",
+        "Heat butter in a non-stick skillet over medium heat; sauté garlic and spinach for 2 minutes until wilted and excess moisture evaporates.",
+        "Whisk eggs in a bowl with salt, black pepper, and a pinch of herbs.",
+        "Pour whisked eggs into the pan with spinach. Stir gently on low heat with a spatula until silky, soft curds form.",
+        "Remove from heat immediately while still creamy and serve warm with toast."
+      ];
+    } else if (hasChicken && hasRice) {
+      dishTitle = "One-Skillet Garlic Butter Seared Chicken & Fragrant Rice";
+      cuisine = "Mediterranean";
+      cookingTime = 25;
+      instructions = [
+        "Cut chicken into bite-sized cubes and season with salt, pepper, and garlic powder.",
+        "Sear chicken in hot oil/butter in a deep skillet for 5 minutes until golden brown on all sides. Remove chicken.",
+        "In the same skillet, sauté diced onions and garlic until fragrant.",
+        "Add rice and toast for 2 minutes, then pour in warm broth or water (2:1 ratio to rice).",
+        "Return chicken to the skillet, cover tightly with a lid, and simmer on low for 15-18 minutes until rice is fluffy and tender.",
+        "Rest for 5 minutes, fluff with a fork, and serve hot."
+      ];
+    } else if (hasPasta && (hasTomato || hasGarlic || hasCheese)) {
+      dishTitle = "Rustic Sautéed Garlic & Blistered Tomato Tossed Pasta";
+      cuisine = "Italian";
+      cookingTime = 15;
+      instructions = [
+        "Boil pasta in salted water according to package instructions until al dente. Reserve 1/2 cup pasta water and drain.",
+        "Heat olive oil in a skillet, sauté sliced garlic until light golden and fragrant.",
+        "Add chopped or cherry tomatoes with salt and chili flakes. Cook on medium-high for 5 minutes until bursting and juicy.",
+        "Toss the drained pasta directly into the tomato garlic reduction along with 2 tbsp reserved pasta water.",
+        hasCheese ? "Fold in cheese until melted and glossy. Garnish with black pepper and herbs." : "Toss continuously for 1 minute until pasta is thoroughly coated with the pan sauce."
+      ];
+    } else if (hasPotato && hasCheese) {
+      dishTitle = "Crispy Golden Skillet Herb Potato & Melted Cheese Bake";
+      cuisine = "Alpine Style";
+      cookingTime = 20;
+      instructions = [
+        "Thinly slice or grate potatoes and squeeze out excess moisture with a clean towel.",
+        "Melt butter in a heavy skillet. Layer seasoned potatoes with diced onions and garlic.",
+        "Cook over medium heat for 8-10 minutes until a deeply golden crispy bottom crust forms.",
+        "Flip or stir to crisp the other side, then scatter shredded cheese evenly over the top.",
+        "Cover with a lid for 3-4 minutes until cheese is completely melted, bubbling, and gooey."
+      ];
+    } else if (hasMushroom && (hasGarlic || hasOnion || hasRice)) {
+      dishTitle = "Caramelized Garlic Herb Mushroom & Onion Sauté";
+      cuisine = "Continental";
+      cookingTime = 15;
+      instructions = [
+        "Slice mushrooms uniformly. Finely dice onions and mince garlic.",
+        "Heat butter or olive oil in a skillet over high heat (essential for browning mushrooms instead of steaming).",
+        "Add mushrooms and sear undisturbed for 3-4 minutes until golden brown.",
+        "Toss in garlic, onions, salt, and black pepper. Sauté for 3 minutes until onions soften and aromas release.",
+        "Finish with a splash of lemon juice and fresh chopped herbs before serving."
+      ];
+    } else if (hasPaneer && (hasTomato || hasOnion || hasSpinach)) {
+      dishTitle = hasSpinach ? "Velvety Garlic Spinach Tossed Paneer Cubes" : "Pan-Seared Spiced Tomato & Onion Glazed Paneer";
+      cuisine = "Indian Gourmet";
+      cookingTime = 18;
+      instructions = [
+        "Cut paneer into 1-inch cubes and soak in warm water for 5 minutes for pillow-soft texture.",
+        "Sauté chopped onions and garlic in butter or ghee until golden brown.",
+        "Add chopped tomatoes and ground spices (turmeric, cumin, garam masala). Cook until a thick savory masala forms.",
+        hasSpinach ? "Add chopped spinach and sauté for 3 minutes until tender and integrated." : "Add 3 tbsp water to loosen the masala glaze.",
+        "Gently toss in paneer cubes to coat thoroughly. Simmer on low heat for 4 minutes and serve hot."
+      ];
+    } else {
+      // General tailored procedural synthesis for any custom list
+      const mainItem = ingredients[0];
+      const otherItems = ingredients.slice(1);
+      dishTitle = `Chef's Artisanal ${ingredients.slice(0, 3).join(' & ')} Medley`;
+      cuisine = diet === 'veg' ? "Modern Vegetarian" : "Gourmet Kitchen";
+      cookingTime = 15;
+      instructions = [
+        `Wash and prepare all fresh ingredients (${ingredients.join(', ')}), cutting them into uniform bite-sized pieces.`,
+        `Heat 2 tbsp oil or butter in a wide skillet over medium-high heat until hot and shimmering.`,
+        `Sauté base aromatics (garlic, onion) first for 1-2 minutes until fragrant.`,
+        `Add ${mainItem} and sear for 4-5 minutes to develop color and texture.`,
+        otherItems.length > 0 ? `Incorporate ${otherItems.join(' and ')} along with salt, freshly cracked pepper, and herbs. Cook for 4-5 minutes until tender.` : `Season with salt, pepper, and herbs, tossing continuously.`,
+        `Simmer on low heat for 2 minutes to allow flavors to harmonize, then remove from heat and serve hot.`
+      ];
+    }
+
     const allIngredients = [
       ...ingredients.map(i => ({ name: i, amount: "As desired", key: true })),
       { name: "Olive Oil or Butter", amount: "2 tbsp", key: false },
-      { name: "Salt & Black Pepper", amount: "To taste", key: false },
-      ...profile.flavors.slice(0, 3).map(f => ({ name: f, amount: "1 tsp", key: false }))
+      { name: "Salt & Fresh Cracked Pepper", amount: "To taste", key: false },
+      { name: "Fresh Herb Garnish", amount: "1 tbsp", key: false }
     ];
+
+    const curatedImages = [
+      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80"
+    ];
+    const image = curatedImages[Math.floor(Math.random() * curatedImages.length)];
 
     return {
       id: `custom_${Date.now()}`,
-      title: title,
-      cuisine: capitalize(randomCuisineKey),
+      title: dishTitle,
+      cuisine: cuisine,
       diet: diet === 'all' ? 'veg' : diet,
       mealType: [meal === 'all' ? 'dinner' : meal],
-      prepTime: 10,
-      cookTime: 15,
+      prepTime: prepTime,
+      cookTime: cookingTime,
       servings: 2,
       difficulty: "Easy",
-      calories: 320,
-      protein: diet === 'non-veg' ? "24g" : "12g",
-      carbs: "22g",
-      fats: "16g",
-      image: "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=80",
-      description: `A tailor-made creation incorporating ${ingredients.join(', ')}, harmonized with aromatic seasonings using ${profile.technique}.`,
+      calories: 330,
+      protein: diet === 'non-veg' ? "22g" : "14g",
+      carbs: "28g",
+      fats: "15g",
+      image: image,
+      description: `A custom culinary creation specifically combining ${ingredients.join(', ')} with savory seasonings and chef-level technique.`,
       ingredients: allIngredients,
-      instructions: [
-        `Wash and prep all fresh ingredients (${ingredients.join(', ')}). Cut into uniform bite-sized pieces for even cooking.`,
-        `Heat cooking fat (oil or butter) in a wide skillet over medium-high heat until hot and shimmering.`,
-        `Sauté base aromatics like garlic/onion, then add ${mainItem} and sear for 4-5 minutes until aromatic.`,
-        secondaryItems.length > 0 
-          ? `Toss in ${secondaryItems.join(' and ')} along with salt, pepper, and herbs. Stir continuously to coat everything evenly.`
-          : `Season generously with your favorite spices and herbs to elevate the flavor profile.`,
-        `Reduce heat to low, cover with a lid for 3-4 minutes to let flavors meld together, then remove from heat.`,
-        `Garnish with fresh greens or a squeeze of citrus and serve immediately while hot.`
-      ],
-      tips: "Taste test near the end and adjust salt or acidity with a squeeze of lemon to make the flavors pop!",
+      instructions: instructions,
+      tips: "For maximum flavor, sear ingredients over high heat initially before reducing to simmer.",
       matchedCount: ingredients.length,
       totalIngredients: allIngredients.length,
       matchPercent: 100,
       matchedItems: ingredients,
-      missingItems: ["Olive Oil or Butter", "Salt & Black Pepper"],
-      isCustomGenerated: true
+      missingItems: ["Olive Oil or Butter", "Salt & Fresh Cracked Pepper"],
+      isCustomSpecial: true
     };
   }
 

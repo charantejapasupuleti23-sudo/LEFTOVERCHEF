@@ -26,19 +26,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Ingredients list is required.' });
   }
 
-  const systemPrompt = `You are an elite master chef and culinary scientist. 
-The user has given you a specific set of pantry ingredients, dietary preference, and meal type.
-Generate a gourmet, realistic, delicious recipe that prioritizes their provided ingredients.
+  const ingredientsListStr = ingredients.join(', ');
 
-Strict Dietary Rule:
-- If diet is "veg", the recipe must strictly contain NO meat, poultry, fish, seafood, or eggs. Dairy is allowed.
-- If diet is "vegan", strictly 100% plant-based with NO meat, dairy, eggs, or animal products.
-- If diet is "non-veg", you can incorporate chicken, egg, meat, or seafood while harmonizing with their ingredients.
+  const systemPrompt = `You are a Michelin-star Executive Chef and culinary innovator.
+Your mission is to craft a completely custom, unique gourmet recipe centered STRICTLY around the user's exact pantry ingredients: [${ingredientsListStr}].
+
+CRITICAL RULES:
+1. FOCUS ON PROVIDED INGREDIENTS: The dish title, core flavor, and preparation steps MUST revolve directly around ${ingredientsListStr}.
+2. DO NOT introduce unprovided primary ingredients (for example: do NOT create a Chicken or Paneer recipe if the user did not give Chicken or Paneer). You may only assume basic pantry seasonings (oil, butter, salt, pepper, common spices, water).
+3. DIETARY PREFERENCE COMPLIANCE:
+   - If diet is "veg": STRICTLY NO meat, chicken, beef, pork, seafood, fish, or eggs. Dairy (milk, butter, cheese) is allowed.
+   - If diet is "vegan": STRICTLY 100% plant-based. NO meat, NO eggs, NO dairy, NO honey.
+   - If diet is "non-veg": Meat/poultry/eggs/seafood are allowed ONLY if provided by the user or as a complement if requested.
+4. VARIATION & UNIQUENESS: Every request must produce a creative, authentic recipe specifically harmonizing ${ingredientsListStr}.
 
 You MUST reply ONLY with a valid JSON object matching this exact schema:
 {
-  "title": "Dish Name",
-  "cuisine": "Cuisine style (e.g. Italian, Indian, Mexican, Asian, Mediterranean, American)",
+  "title": "Creative, highly appetizing dish name featuring ${ingredientsListStr}",
+  "cuisine": "Authentic Cuisine style (e.g. Italian, Mediterranean, Asian, Mexican, French, Indian)",
   "diet": "${diet === 'all' ? 'veg' : diet}",
   "mealType": ["${meal === 'all' ? 'dinner' : meal}"],
   "prepTime": 15,
@@ -49,22 +54,23 @@ You MUST reply ONLY with a valid JSON object matching this exact schema:
   "protein": "18g",
   "carbs": "42g",
   "fats": "14g",
-  "description": "A 2-sentence enticing description highlighting the flavor profile and texture.",
+  "description": "An enticing culinary description explaining how ${ingredientsListStr} are paired, textured, and flavored.",
   "ingredients": [
     { "name": "Ingredient Name", "amount": "e.g. 2 cups / 200g / 2 tbsp", "key": true }
   ],
   "instructions": [
-    "Step 1 description with precise techniques and visual cues.",
-    "Step 2 description..."
+    "Step 1: Specific prep and technique for ${ingredients[0] || 'the main item'}.",
+    "Step 2: Cooking aromatics and combining ingredients...",
+    "Step 3: Simmering/searing with seasonings...",
+    "Step 4: Plating and finishing..."
   ],
-  "tips": "A professional chef tip to make this dish taste restaurant quality."
+  "tips": "A professional chef secret tip to elevate this specific dish."
 }`;
 
-  const userPrompt = `User's available pantry ingredients: ${ingredients.join(', ')}
-Dietary preference: ${diet}
-Meal type: ${meal}
-
-Create an extraordinary recipe now.`;
+  const userPrompt = `Create a gourmet recipe now for:
+Available Ingredients: ${ingredientsListStr}
+Diet Preference: ${diet}
+Meal Type: ${meal}`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -79,7 +85,7 @@ Create an extraordinary recipe now.`;
     ],
     generationConfig: {
       responseMimeType: "application/json",
-      temperature: 0.7,
+      temperature: 0.85,
       maxOutputTokens: 2048
     }
   };
